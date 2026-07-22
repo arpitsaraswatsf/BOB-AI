@@ -1,0 +1,54 @@
+version: "3.9"
+
+services:
+  # ── Investment Analyst API ─────────────────────────────────────────
+  api:
+    build: .
+    container_name: investment_analyst_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - investment_net
+
+  # ── IBM Langflow ───────────────────────────────────────────────────
+  langflow:
+    image: langflowai/langflow:latest
+    container_name: langflow
+    ports:
+      - "7860:7860"
+    environment:
+      - LANGFLOW_AUTO_LOGIN=true
+      - LANGFLOW_SUPERUSER=admin
+      - LANGFLOW_SUPERUSER_PASSWORD=changeme_in_prod
+    volumes:
+      - langflow_data:/app/langflow
+      - ./langflow:/app/langflow/flows
+    restart: unless-stopped
+    networks:
+      - investment_net
+
+  # ── Redis cache (optional, for production caching) ─────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: investment_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - investment_net
+
+volumes:
+  langflow_data:
+
+networks:
+  investment_net:
+    driver: bridge

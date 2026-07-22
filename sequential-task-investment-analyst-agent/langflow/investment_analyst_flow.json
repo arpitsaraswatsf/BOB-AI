@@ -1,0 +1,281 @@
+{
+  "id": "sequential-investment-analyst-flow",
+  "name": "Sequential Task Investment Analyst",
+  "description": "10-step sequential investment analysis pipeline powered by IBM Granite",
+  "version": "1.0.0",
+  "last_tested_version": "1.0.17",
+  "data": {
+    "nodes": [
+      {
+        "id": "input_node",
+        "type": "TextInput",
+        "position": { "x": 60, "y": 300 },
+        "data": {
+          "id": "input_node",
+          "type": "TextInput",
+          "node": {
+            "template": {
+              "input_value": {
+                "type": "str",
+                "value": "AAPL",
+                "display_name": "Stock Ticker",
+                "info": "Enter a stock ticker symbol (e.g. AAPL, TSLA, MSFT)"
+              }
+            },
+            "display_name": "Ticker Input",
+            "description": "Accept ticker symbol from user"
+          }
+        }
+      },
+      {
+        "id": "data_collection_node",
+        "type": "CustomComponent",
+        "position": { "x": 300, "y": 100 },
+        "data": {
+          "id": "data_collection_node",
+          "type": "CustomComponent",
+          "node": {
+            "template": {
+              "ticker": { "type": "str", "display_name": "Ticker" },
+              "sources": {
+                "type": "list",
+                "value": ["yfinance", "alpha_vantage", "sec", "newsapi", "finnhub"],
+                "display_name": "Data Sources"
+              }
+            },
+            "display_name": "Step 1: Data Collection",
+            "description": "Fetches financial data from Yahoo Finance, Alpha Vantage, SEC EDGAR, Finnhub, NewsAPI"
+          },
+          "code": "from src.data.collector import DataCollector\n\nclass DataCollectionComponent(CustomComponent):\n    def build(self, ticker: str) -> dict:\n        collector = DataCollector()\n        return collector.collect_all(ticker)"
+        }
+      },
+      {
+        "id": "validation_node",
+        "type": "CustomComponent",
+        "position": { "x": 300, "y": 250 },
+        "data": {
+          "id": "validation_node",
+          "type": "CustomComponent",
+          "node": {
+            "template": {
+              "raw_data": { "type": "dict", "display_name": "Raw Data" }
+            },
+            "display_name": "Step 2: Data Validation & Cleaning",
+            "description": "Validates data quality, removes nulls, computes completeness score"
+          },
+          "code": "from src.data.validator import DataValidator\n\nclass ValidationComponent(CustomComponent):\n    def build(self, raw_data: dict) -> dict:\n        validator = DataValidator()\n        return validator.validate_and_clean(raw_data)"
+        }
+      },
+      {
+        "id": "kpi_node",
+        "type": "CustomComponent",
+        "position": { "x": 300, "y": 400 },
+        "data": {
+          "id": "kpi_node",
+          "type": "CustomComponent",
+          "node": {
+            "template": {
+              "validated_data": { "type": "dict", "display_name": "Validated Data" }
+            },
+            "display_name": "Step 3: KPI Extraction",
+            "description": "Extracts Revenue, EPS, ROE, ROA, Margins, P/E, Cash Flow, Debt, and 40+ KPIs"
+          },
+          "code": "from src.analysis.kpi_extractor import KPIExtractor\n\nclass KPIComponent(CustomComponent):\n    def build(self, validated_data: dict) -> dict:\n        extractor = KPIExtractor()\n        return extractor.extract(validated_data)"
+        }
+      },
+      {
+        "id": "ratios_node",
+        "type": "CustomComponent",
+        "position": { "x": 300, "y": 550 },
+        "data": {
+          "id": "ratios_node",
+          "type": "CustomComponent",
+          "node": {
+            "template": {
+              "kpis": { "type": "dict", "display_name": "KPIs" }
+            },
+            "display_name": "Step 4: Financial Ratios",
+            "description": "Calculates composite value, quality, growth, safety scores and all key ratios"
+          },
+          "code": "from src.analysis.ratios_calculator import RatiosCalculator\n\nclass RatiosComponent(CustomComponent):\n    def build(self, kpis: dict) -> dict:\n        calc = RatiosCalculator()\n        return calc.calculate(kpis)"
+        }
+      },
+      {
+        "id": "competitor_node",
+        "type": "CustomComponent",
+        "position": { "x": 600, "y": 300 },
+        "data": {
+          "id": "competitor_node",
+          "type": "CustomComponent",
+          "node": {
+            "template": {
+              "ticker": { "type": "str", "display_name": "Ticker" },
+              "kpis": { "type": "dict", "display_name": "KPIs" }
+            },
+            "display_name": "Step 5: Competitor Analysis",
+            "description": "Fetches and compares up to 4 peer companies on 17 key metrics"
+          },
+          "code": "from src.analysis.competitor_analyzer import CompetitorAnalyzer\n\nclass CompetitorComponent(CustomComponent):\n    def build(self, ticker: str, kpis: dict) -> dict:\n        analyzer = CompetitorAnalyzer()\n        return analyzer.analyze(ticker, kpis)"
+        }
+      },
+      {
+        "id": "sentiment_node",
+        "type": "CustomComponent",
+        "position": { "x": 600, "y": 480 },
+        "data": {
+          "id": "sentiment_node",
+          "type": "CustomComponent",
+          "node": {
+            "template": {
+              "news": { "type": "list", "display_name": "News Articles" },
+              "ticker": { "type": "str", "display_name": "Ticker" }
+            },
+            "display_name": "Step 6: Sentiment Analysis",
+            "description": "VADER sentiment scoring + bullish/bearish classification of news headlines"
+          },
+          "code": "from src.analysis.sentiment_analyzer import SentimentAnalyzer\n\nclass SentimentComponent(CustomComponent):\n    def build(self, news: list, ticker: str) -> dict:\n        analyzer = SentimentAnalyzer()\n        return analyzer.analyze(news, ticker)"
+        }
+      },
+      {
+        "id": "risk_node",
+        "type": "CustomComponent",
+        "position": { "x": 900, "y": 300 },
+        "data": {
+          "id": "risk_node",
+          "type": "CustomComponent",
+          "node": {
+            "template": {
+              "kpis": { "type": "dict", "display_name": "KPIs" },
+              "ratios": { "type": "dict", "display_name": "Ratios" },
+              "sentiment": { "type": "dict", "display_name": "Sentiment" }
+            },
+            "display_name": "Step 7: Risk Detection",
+            "description": "Detects 12 financial and market risk factors, computes composite risk score"
+          },
+          "code": "from src.analysis.risk_detector import RiskDetector\n\nclass RiskComponent(CustomComponent):\n    def build(self, kpis: dict, ratios: dict, sentiment: dict) -> dict:\n        detector = RiskDetector()\n        return detector.detect(kpis, ratios, sentiment)"
+        }
+      },
+      {
+        "id": "granite_analysis_node",
+        "type": "WatsonxLLM",
+        "position": { "x": 1200, "y": 200 },
+        "data": {
+          "id": "granite_analysis_node",
+          "type": "WatsonxLLM",
+          "node": {
+            "template": {
+              "model_id": {
+                "type": "str",
+                "value": "ibm/granite-13b-instruct-v2",
+                "display_name": "Granite Model ID"
+              },
+              "project_id": {
+                "type": "str",
+                "value": "",
+                "display_name": "watsonx Project ID",
+                "password": true
+              },
+              "api_key": {
+                "type": "str",
+                "value": "",
+                "display_name": "IBM Cloud API Key",
+                "password": true
+              },
+              "max_new_tokens": { "type": "int", "value": 1200 },
+              "decoding_method": { "type": "str", "value": "greedy" },
+              "repetition_penalty": { "type": "float", "value": 1.1 }
+            },
+            "display_name": "Step 8: IBM Granite Analysis",
+            "description": "Calls IBM Granite LLM for deep financial analysis, insights, and written summary"
+          }
+        }
+      },
+      {
+        "id": "growth_prediction_node",
+        "type": "WatsonxLLM",
+        "position": { "x": 1200, "y": 420 },
+        "data": {
+          "id": "growth_prediction_node",
+          "type": "WatsonxLLM",
+          "node": {
+            "template": {
+              "model_id": {
+                "type": "str",
+                "value": "ibm/granite-13b-instruct-v2",
+                "display_name": "Granite Model ID"
+              },
+              "max_new_tokens": { "type": "int", "value": 800 },
+              "decoding_method": { "type": "str", "value": "greedy" }
+            },
+            "display_name": "Step 9: Growth Predictions",
+            "description": "3-year revenue/earnings forecast with low/base/high scenarios"
+          }
+        }
+      },
+      {
+        "id": "recommendation_node",
+        "type": "CustomComponent",
+        "position": { "x": 1500, "y": 300 },
+        "data": {
+          "id": "recommendation_node",
+          "type": "CustomComponent",
+          "node": {
+            "template": {
+              "kpis": { "type": "dict" },
+              "ratios": { "type": "dict" },
+              "sentiment": { "type": "dict" },
+              "risk": { "type": "dict" },
+              "competitor": { "type": "dict" },
+              "ai_analysis": { "type": "dict" }
+            },
+            "display_name": "Step 10: Final Recommendation",
+            "description": "Strong Buy | Buy | Hold | Sell | Strong Sell with full reasoning"
+          },
+          "code": "from src.ai.recommendation_engine import RecommendationEngine\n\nclass RecommendationComponent(CustomComponent):\n    def build(self, kpis, ratios, sentiment, risk, competitor, ai_analysis) -> dict:\n        engine = RecommendationEngine()\n        return engine.generate(kpis, ratios, sentiment, risk, competitor, ai_analysis)"
+        }
+      },
+      {
+        "id": "output_node",
+        "type": "TextOutput",
+        "position": { "x": 1800, "y": 300 },
+        "data": {
+          "id": "output_node",
+          "type": "TextOutput",
+          "node": {
+            "template": {
+              "input_value": { "type": "str", "display_name": "Final Analysis Report" }
+            },
+            "display_name": "Analysis Output",
+            "description": "Final structured investment report"
+          }
+        }
+      }
+    ],
+    "edges": [
+      { "source": "input_node", "target": "data_collection_node", "sourceHandle": "text", "targetHandle": "ticker" },
+      { "source": "input_node", "target": "competitor_node", "sourceHandle": "text", "targetHandle": "ticker" },
+      { "source": "input_node", "target": "sentiment_node", "sourceHandle": "text", "targetHandle": "ticker" },
+      { "source": "data_collection_node", "target": "validation_node", "sourceHandle": "output", "targetHandle": "raw_data" },
+      { "source": "validation_node", "target": "kpi_node", "sourceHandle": "output", "targetHandle": "validated_data" },
+      { "source": "validation_node", "target": "sentiment_node", "sourceHandle": "news", "targetHandle": "news" },
+      { "source": "kpi_node", "target": "ratios_node", "sourceHandle": "output", "targetHandle": "kpis" },
+      { "source": "kpi_node", "target": "competitor_node", "sourceHandle": "output", "targetHandle": "kpis" },
+      { "source": "kpi_node", "target": "risk_node", "sourceHandle": "output", "targetHandle": "kpis" },
+      { "source": "kpi_node", "target": "granite_analysis_node", "sourceHandle": "output", "targetHandle": "kpis" },
+      { "source": "kpi_node", "target": "growth_prediction_node", "sourceHandle": "output", "targetHandle": "kpis" },
+      { "source": "kpi_node", "target": "recommendation_node", "sourceHandle": "output", "targetHandle": "kpis" },
+      { "source": "ratios_node", "target": "risk_node", "sourceHandle": "output", "targetHandle": "ratios" },
+      { "source": "ratios_node", "target": "granite_analysis_node", "sourceHandle": "output", "targetHandle": "ratios" },
+      { "source": "ratios_node", "target": "recommendation_node", "sourceHandle": "output", "targetHandle": "ratios" },
+      { "source": "competitor_node", "target": "granite_analysis_node", "sourceHandle": "output", "targetHandle": "competitor" },
+      { "source": "competitor_node", "target": "recommendation_node", "sourceHandle": "output", "targetHandle": "competitor" },
+      { "source": "sentiment_node", "target": "risk_node", "sourceHandle": "output", "targetHandle": "sentiment" },
+      { "source": "sentiment_node", "target": "granite_analysis_node", "sourceHandle": "output", "targetHandle": "sentiment" },
+      { "source": "sentiment_node", "target": "recommendation_node", "sourceHandle": "output", "targetHandle": "sentiment" },
+      { "source": "risk_node", "target": "granite_analysis_node", "sourceHandle": "output", "targetHandle": "risk" },
+      { "source": "risk_node", "target": "recommendation_node", "sourceHandle": "output", "targetHandle": "risk" },
+      { "source": "granite_analysis_node", "target": "recommendation_node", "sourceHandle": "output", "targetHandle": "ai_analysis" },
+      { "source": "recommendation_node", "target": "output_node", "sourceHandle": "output", "targetHandle": "input_value" }
+    ]
+  }
+}

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Investment Analyst Agent — IBM watsonx Dashboard</title>
+<!--
+  Sequential Task Investment Analyst Agent — Interactive Dashboard
+  Connects to the FastAPI backend at /api/... 
+  To use standalone (no backend): the page renders with demo data.
+  To connect to live backend: update API_BASE below.
+-->
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1f2328;font-size:14px;line-height:1.6}
+  .wrap{max-width:900px;margin:0 auto;padding:20px 16px 40px}
+
+  /* ── TOP NAV ── */
+  .nav{display:flex;align-items:center;justify-content:space-between;background:#1a2d5a;color:#fff;padding:10px 20px;border-radius:10px;margin-bottom:16px}
+  .nav-brand{font-size:13px;font-weight:700;letter-spacing:.3px}
+  .nav-sub{font-size:11px;color:#93c5fd;margin-top:1px}
+  .nav-right{display:flex;align-items:center;gap:10px}
+  .ticker-input{padding:6px 12px;border-radius:6px;border:1px solid #3b5998;background:#253a6b;color:#fff;font-size:13px;width:100px;text-transform:uppercase}
+  .ticker-input::placeholder{color:#93c5fd}
+  .btn{padding:6px 14px;border-radius:6px;border:none;font-size:13px;font-weight:600;cursor:pointer}
+  .btn-primary{background:#3b82d4;color:#fff}
+  .btn-primary:hover{background:#2563eb}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:#60a5fa;display:inline-block;margin-right:5px}
+
+  /* ── HEADER ── */
+  .hdr{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:20px 24px;margin-bottom:14px;display:flex;align-items:flex-start;gap:20px}
+  .hdr-left{flex:1}
+  .hdr-badge{display:inline-flex;align-items:center;gap:6px;background:#1a2d5a;color:#fff;border-radius:6px;padding:2px 10px;font-size:11px;font-weight:600;letter-spacing:.5px;margin-bottom:6px}
+  .hdr h1{font-size:22px;font-weight:700;margin-bottom:2px}
+  .hdr .meta{color:#57606a;font-size:13px}
+  .hdr-right{text-align:right;min-width:140px}
+  .price{font-size:26px;font-weight:700}
+  .price-sub{font-size:12px;color:#57606a;margin-top:2px}
+  .rec-badge{display:inline-block;padding:5px 18px;border-radius:20px;font-size:13px;font-weight:700;color:#fff;margin-top:8px}
+
+  /* ── GAUGE ROW ── */
+  .gauge-row{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px 24px;margin-bottom:14px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+  .gauge-block{flex:1;text-align:center;min-width:100px}
+  .gauge-label{font-size:11px;color:#57606a;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+  .gauge-val{font-size:24px;font-weight:700}
+  .gauge-bar-wrap{height:7px;background:#e5e7eb;border-radius:4px;margin-top:6px}
+  .gauge-bar{height:7px;border-radius:4px}
+
+  /* ── GRIDS ── */
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+
+  /* ── KPI TILE ── */
+  .kpi{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px}
+  .kpi-label{font-size:11px;color:#57606a;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+  .kpi-val{font-size:20px;font-weight:700;color:#1f2328}
+  .kpi-sub{font-size:11px;color:#57606a;margin-top:2px}
+  .up{color:#16a34a}.dn{color:#dc2626}
+
+  /* ── CARD ── */
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:14px}
+  .card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#57606a;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f3f4f6}
+  .sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#57606a;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid #e5e7eb}
+
+  /* ── SCORE BARS ── */
+  .score-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .score-name{width:90px;font-size:12px;font-weight:500}
+  .score-track{flex:1;height:10px;background:#f3f4f6;border-radius:5px;overflow:hidden}
+  .score-fill{height:10px;border-radius:5px}
+  .score-num{width:46px;text-align:right;font-size:13px;font-weight:700}
+
+  /* ── TABLE ── */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{background:#f7f8fa;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#57606a;padding:7px 10px;text-align:left;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+  td{padding:7px 10px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#fafbfc}
+  .target-row td{background:#f0f7ff;font-weight:600}
+
+  /* ── SENTIMENT BAR ── */
+  .sent-bar{display:flex;height:18px;border-radius:9px;overflow:hidden;margin:10px 0}
+
+  /* ── RISK ── */
+  .risk-item{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f3f4f6}
+  .risk-item:last-child{border-bottom:none}
+  .risk-badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;white-space:nowrap;letter-spacing:.4px;flex-shrink:0;margin-top:2px}
+  .sev-high{background:#fee2e2;color:#dc2626}
+  .sev-medium{background:#fef3c7;color:#d97706}
+  .sev-low{background:#f3f4f6;color:#57606a}
+
+  /* ── WORKFLOW ── */
+  .wf-node{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;text-align:center;color:#16a34a}
+
+  /* ── AI TEXT ── */
+  .ai-text{font-size:13px;line-height:1.7;white-space:pre-wrap;max-height:300px;overflow-y:auto;padding:4px 0}
+
+  /* ── RECOMMENDATION BOX ── */
+  .rec-box{background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:20px 24px;margin-top:4px}
+
+  /* ── FOOTER ── */
+  .footer{text-align:center;font-size:11px;color:#9ca3af;margin-top:28px;padding-top:12px;border-top:1px solid #e5e7eb}
+
+  /* ── COLORS ── */
+  .c-green{color:#16a34a}.c-lime{color:#65a30d}.c-yellow{color:#d97706}.c-orange{color:#ea580c}.c-red{color:#dc2626}.c-blue{color:#3b82d4}
+  .bg-green{background:#16a34a}.bg-lime{background:#65a30d}.bg-yellow{background:#d97706}.bg-orange{background:#ea580c}.bg-red{background:#dc2626}.bg-blue{background:#3b82d4}
+  .strong-buy{background:#16a34a}.buy{background:#3b82d4}.hold{background:#d97706}.sell{background:#ea580c}.strong-sell{background:#dc2626}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- TOP NAV -->
+  <div class="nav">
+    <div>
+      <div class="nav-brand"><span class="status-dot"></span>Sequential Task Investment Analyst Agent</div>
+      <div class="nav-sub">IBM watsonx · IBM Granite · IBM Langflow · IBM Orchestrate</div>
+    </div>
+    <div class="nav-right">
+      <input class="ticker-input" type="text" id="tickerInput" placeholder="AAPL" value="AAPL" maxlength="10">
+      <button class="btn btn-primary" onclick="alert('Connect to http://localhost:8000/analyze/AAPL to fetch live data')">Analyze</button>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-badge"><span style="width:6px;height:6px;border-radius:50%;background:#60a5fa;display:inline-block"></span>IBM Granite — ibm/granite-13b-instruct-v2</div>
+      <h1>Apple Inc. <span style="color:#57606a;font-weight:400;font-size:16px">AAPL</span></h1>
+      <div class="meta">Technology · Consumer Electronics · NASDAQ</div>
+      <div class="meta" style="margin-top:4px">Sector: Technology &nbsp;·&nbsp; Country: United States &nbsp;·&nbsp; 164,000 Employees</div>
+    </div>
+    <div class="hdr-right">
+      <div class="price">$193.60</div>
+      <div class="price-sub">52W Range: $164.08 – $220.20</div>
+      <div class="price-sub up" style="margin-top:3px">▲ +1.4% today</div>
+      <div class="rec-badge buy">● BUY</div>
+    </div>
+  </div>
+
+  <!-- COMPOSITE SCORE GAUGES -->
+  <div class="gauge-row">
+    <div class="gauge-block">
+      <div class="gauge-label">Composite</div>
+      <div class="gauge-val c-blue">71.4</div>
+      <div class="gauge-bar-wrap"><div class="gauge-bar bg-blue" style="width:71.4%"></div></div>
+    </div>
+    <div class="gauge-block">
+      <div class="gauge-label">Value</div>
+      <div class="gauge-val c-yellow">52.0</div>
+      <div class="gauge-bar-wrap"><div class="gauge-bar bg-yellow" style="width:52%"></div></div>
+    </div>
+    <div class="gauge-block">
+      <div class="gauge-label">Quality</div>
+      <div class="gauge-val c-green">83.0</div>
+      <div class="gauge-bar-wrap"><div class="gauge-bar bg-green" style="width:83%"></div></div>
+    </div>
+    <div class="gauge-block">
+      <div class="gauge-label">Growth</div>
+      <div class="gauge-val c-lime">68.0</div>
+      <div class="gauge-bar-wrap"><div class="gauge-bar bg-lime" style="width:68%"></div></div>
+    </div>
+    <div class="gauge-block">
+      <div class="gauge-label">Safety</div>
+      <div class="gauge-val c-blue">75.0</div>
+      <div class="gauge-bar-wrap"><div class="gauge-bar bg-blue" style="width:75%"></div></div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="sec-title">Key Financial KPIs</div>
+  <div class="grid4">
+    <div class="kpi"><div class="kpi-label">Revenue TTM</div><div class="kpi-val">$385.6B</div><div class="kpi-sub up">▲ +8.1% YoY</div></div>
+    <div class="kpi"><div class="kpi-label">Net Income</div><div class="kpi-val">$97.0B</div><div class="kpi-sub up">▲ +12.3% YoY</div></div>
+    <div class="kpi"><div class="kpi-label">EPS (TTM)</div><div class="kpi-val">$6.43</div><div class="kpi-sub up">▲ +13.4% YoY</div></div>
+    <div class="kpi"><div class="kpi-label">Free Cash Flow</div><div class="kpi-val">$90.2B</div><div class="kpi-sub">FCF Yield: 3.0%</div></div>
+    <div class="kpi"><div class="kpi-label">Gross Margin</div><div class="kpi-val">45.0%</div><div class="kpi-sub">Operating: 30.1%</div></div>
+    <div class="kpi"><div class="kpi-label">Net Margin</div><div class="kpi-val">25.2%</div><div class="kpi-sub up">Above sector avg</div></div>
+    <div class="kpi"><div class="kpi-label">ROE</div><div class="kpi-val">160.0%</div><div class="kpi-sub">ROA: 28.4%</div></div>
+    <div class="kpi"><div class="kpi-label">P/E Ratio</div><div class="kpi-val">30.1x</div><div class="kpi-sub">Forward: 27.4x</div></div>
+    <div class="kpi"><div class="kpi-label">EV/EBITDA</div><div class="kpi-val">22.0x</div><div class="kpi-sub">PEG: 2.1x</div></div>
+    <div class="kpi"><div class="kpi-label">Debt / Equity</div><div class="kpi-val">1.76x</div><div class="kpi-sub">Current: 1.07x</div></div>
+    <div class="kpi"><div class="kpi-label">Market Cap</div><div class="kpi-val">$3.00T</div><div class="kpi-sub">EV: $3.04T</div></div>
+    <div class="kpi"><div class="kpi-label">Analyst Target</div><div class="kpi-val">$215.00</div><div class="kpi-sub up">▲ +11.1% upside</div></div>
+  </div>
+
+  <!-- SCORES + COMPETITOR CHART -->
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Score Breakdown (0–100)</div>
+      <div class="score-row"><div class="score-name">Quality</div><div class="score-track"><div class="score-fill bg-green" style="width:83%"></div></div><div class="score-num c-green">83.0</div></div>
+      <div class="score-row"><div class="score-name">Safety</div><div class="score-track"><div class="score-fill bg-blue" style="width:75%"></div></div><div class="score-num c-blue">75.0</div></div>
+      <div class="score-row"><div class="score-name">Growth</div><div class="score-track"><div class="score-fill bg-lime" style="width:68%"></div></div><div class="score-num c-lime">68.0</div></div>
+      <div class="score-row"><div class="score-name">Analyst</div><div class="score-track"><div class="score-fill bg-blue" style="width:72%"></div></div><div class="score-num c-blue">72.0</div></div>
+      <div class="score-row"><div class="score-name">Upside</div><div class="score-track"><div class="score-fill bg-lime" style="width:65%"></div></div><div class="score-num c-lime">65.0</div></div>
+      <div class="score-row"><div class="score-name">Value</div><div class="score-track"><div class="score-fill bg-yellow" style="width:52%"></div></div><div class="score-num c-yellow">52.0</div></div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #f3f4f6;display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:#57606a;font-weight:600">OVERALL</span>
+        <span style="font-size:17px;font-weight:700;color:#3b82d4">71.4 / 100</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Net Margin vs Peers (%)</div>
+      <svg viewBox="0 0 300 110" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:110px">
+        <rect x="15" y="20" width="38" height="72" fill="#3b82d4" rx="3"/>
+        <text x="34" y="14" text-anchor="middle" font-size="11" fill="#1f2328" font-weight="700">25.2</text>
+        <text x="34" y="105" text-anchor="middle" font-size="10" fill="#57606a">AAPL</text>
+        <rect x="70" y="6" width="38" height="86" fill="#9ca3af" rx="3"/>
+        <text x="89" y="0" text-anchor="middle" font-size="11" fill="#1f2328">36.1</text>
+        <text x="89" y="105" text-anchor="middle" font-size="10" fill="#57606a">MSFT</text>
+        <rect x="125" y="28" width="38" height="64" fill="#c4c9d1" rx="3"/>
+        <text x="144" y="22" text-anchor="middle" font-size="11" fill="#1f2328">21.0</text>
+        <text x="144" y="105" text-anchor="middle" font-size="10" fill="#57606a">GOOGL</text>
+        <rect x="180" y="14" width="38" height="78" fill="#c4c9d1" rx="3"/>
+        <text x="199" y="8" text-anchor="middle" font-size="11" fill="#1f2328">28.8</text>
+        <text x="199" y="105" text-anchor="middle" font-size="10" fill="#57606a">META</text>
+        <rect x="235" y="76" width="38" height="16" fill="#e5e7eb" rx="3"/>
+        <text x="254" y="71" text-anchor="middle" font-size="11" fill="#57606a">6.1</text>
+        <text x="254" y="105" text-anchor="middle" font-size="10" fill="#57606a">SAMSF</text>
+        <line x1="10" y1="92" x2="290" y2="92" stroke="#e5e7eb" stroke-width="1"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- COMPETITOR TABLE -->
+  <div class="sec-title">Competitor Comparison</div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>Ticker</th><th>P/E</th><th>Fwd P/E</th><th>ROE</th><th>Net Margin</th><th>Rev Growth</th><th>FCF Yield</th><th>Debt/Eq</th><th>Beta</th></tr>
+      </thead>
+      <tbody>
+        <tr class="target-row"><td><strong>AAPL ★</strong></td><td>30.1x</td><td>27.4x</td><td class="c-green">160.0%</td><td>25.2%</td><td>8.1%</td><td class="c-green">3.0%</td><td>1.76x</td><td>1.20</td></tr>
+        <tr><td>MSFT</td><td>35.2x</td><td>31.0x</td><td>40.1%</td><td class="c-green">36.1%</td><td class="c-green">16.2%</td><td>2.8%</td><td class="c-green">0.31x</td><td>0.90</td></tr>
+        <tr><td>GOOGL</td><td class="c-green">24.1x</td><td class="c-green">21.0x</td><td>28.5%</td><td>21.0%</td><td>11.4%</td><td>3.9%</td><td>0.10x</td><td class="c-green">1.05</td></tr>
+        <tr><td>META</td><td>23.5x</td><td>22.1x</td><td>34.2%</td><td>28.8%</td><td>22.1%</td><td>3.5%</td><td>0.22x</td><td>1.30</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:7px;font-size:11px;color:#9ca3af">★ Target &nbsp;·&nbsp; <span class="c-green">Green</span> = ranked #1 in metric</div>
+  </div>
+
+  <!-- SENTIMENT + RISK -->
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">News Sentiment Analysis</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><div style="font-size:22px;font-weight:700;color:#16a34a">56.4<span style="font-size:12px;color:#57606a;font-weight:400">/100</span></div>
+        <div style="font-size:12px;color:#57606a">Slightly Bullish · 18 articles</div></div>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 12px;text-align:center">
+          <div style="font-size:10px;color:#57606a;font-weight:700;text-transform:uppercase">Method</div>
+          <div style="font-size:12px;font-weight:700">VADER NLP</div>
+        </div>
+      </div>
+      <div class="sent-bar"><div style="background:#16a34a;width:55%"></div><div style="background:#e5e7eb;width:28%"></div><div style="background:#dc2626;width:17%"></div></div>
+      <div style="display:flex;gap:14px;font-size:11px;color:#57606a">
+        <span><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;display:inline-block;margin-right:3px;vertical-align:middle"></span>Positive: 10 (55%)</span>
+        <span><span style="width:7px;height:7px;border-radius:50%;background:#e5e7eb;display:inline-block;margin-right:3px;vertical-align:middle"></span>Neutral: 5 (28%)</span>
+        <span><span style="width:7px;height:7px;border-radius:50%;background:#dc2626;display:inline-block;margin-right:3px;vertical-align:middle"></span>Negative: 3 (17%)</span>
+      </div>
+      <div style="margin-top:10px;border-top:1px solid #f3f4f6;padding-top:8px;font-size:12px;color:#1f2328;line-height:1.7">
+        <strong>Top Positive:</strong><br>
+        • Apple beats earnings with record services revenue<br>
+        • iPhone 16 demand surge drives analyst upgrades<br>
+        <br><strong>Top Negative:</strong><br>
+        • China iPhone sales decline amid regulatory pressure
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Risk Assessment</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div><div style="font-size:22px;font-weight:700;color:#d97706">25<span style="font-size:12px;color:#57606a;font-weight:400">/100</span></div>
+        <div style="font-size:12px;color:#57606a">Risk Level: <strong style="color:#d97706">Low</strong></div></div>
+        <div style="text-align:right;font-size:11px;color:#57606a">
+          High: <strong style="color:#dc2626">0</strong><br>
+          Medium: <strong style="color:#d97706">2</strong><br>
+          Low: <strong>1</strong>
+        </div>
+      </div>
+      <div class="risk-item"><div class="risk-badge sev-medium">Medium</div><div style="font-size:12px;line-height:1.5">P/E 30.1x elevated — valuation risk if growth slows</div></div>
+      <div class="risk-item"><div class="risk-badge sev-medium">Medium</div><div style="font-size:12px;line-height:1.5">Beta 1.20 — slightly elevated market volatility</div></div>
+      <div class="risk-item"><div class="risk-badge sev-low">Low</div><div style="font-size:12px;line-height:1.5">Quick ratio 0.98 marginally below 1.0 threshold</div></div>
+    </div>
+  </div>
+
+  <!-- AI ANALYSIS -->
+  <div class="sec-title">IBM Granite AI Analysis</div>
+  <div class="card">
+    <div class="card-title">Generated by ibm/granite-13b-instruct-v2 · IBM watsonx.ai</div>
+    <div class="ai-text">## Business Quality Assessment
+Apple operates one of the world's strongest consumer technology ecosystems, with 2.2B+ active devices and formidable switching costs. The Services segment — exceeding $85B annually — provides high-margin recurring revenue that de-risks the hardware cycle.
+
+## Financial Health Summary
+Apple's balance sheet is exceptionally strong with $73B in cash and $90B+ in annual free cash flow. Gross margins of 45% and net margins of 25.2% are industry-leading, driven by premium pricing power and growing software monetization.
+
+## Growth Outlook
+Revenue growth of 8.1% YoY is driven by Services (+15% YoY), iPhone 16 cycle tailwinds, and India market expansion. Apple Intelligence creates new AI monetization surfaces. Earnings growth of 12.3% reflects meaningful operating leverage.
+
+## Key Risks
+• China: ~18% revenue exposed to regulatory/tariff risk
+• EU/US antitrust scrutiny targeting App Store commissions
+• Android AI features closing the competitive gap
+
+## Valuation Assessment
+At 30x trailing earnings, Apple trades at a modest premium to its 5-year average (24x) but at a discount to pure software peers — partially justified by ecosystem quality.
+
+## Investment Recommendation: BUY
+Apple represents a high-quality compounder at a fair valuation. Services growth trajectory, capital return program ($90B+ annual buybacks), and ecosystem durability create a compelling risk-adjusted return. Target accumulation below $185.</div>
+  </div>
+
+  <!-- GROWTH PREDICTIONS -->
+  <div class="card">
+    <div class="card-title">IBM Granite — 3-Year Growth Predictions</div>
+    <div class="grid3" style="margin-bottom:12px">
+      <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#57606a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Bear Case</div>
+        <div style="font-size:22px;font-weight:700;color:#ea580c">+5%</div>
+        <div style="font-size:11px;color:#57606a">Rev CAGR · EPS $7.10</div>
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#57606a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Base Case ✓</div>
+        <div style="font-size:22px;font-weight:700;color:#16a34a">+9%</div>
+        <div style="font-size:11px;color:#57606a">Rev CAGR · EPS $8.40</div>
+      </div>
+      <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#57606a;font-weight:700;text-transform:uppercase;margin-bottom:4px">Bull Case</div>
+        <div style="font-size:22px;font-weight:700;color:#3b82d4">+14%</div>
+        <div style="font-size:11px;color:#57606a">Rev CAGR · EPS $10.20</div>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:#1f2328;line-height:1.7;border-top:1px solid #f3f4f6;padding-top:10px">
+      <strong>Catalysts:</strong> Services reaching $120B by FY2027, India iPhone growth, Apple Intelligence monetization.<br>
+      <strong>Headwinds:</strong> China macro risk, App Store commission regulatory pressure.<br>
+      <strong>Confidence: Medium-High</strong>
+    </div>
+  </div>
+
+  <!-- WORKFLOW -->
+  <div class="sec-title">Workflow Execution — 10 Sequential Steps</div>
+  <div class="card" style="padding:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <div class="wf-node">1. Collect<br><span style="font-weight:400;color:#57606a;font-size:10px">3.2s</span></div>
+      <span style="color:#c4c9d1;font-size:11px">▶</span>
+      <div class="wf-node">2. Validate<br><span style="font-weight:400;color:#57606a;font-size:10px">0.1s</span></div>
+      <span style="color:#c4c9d1;font-size:11px">▶</span>
+      <div class="wf-node">3. KPIs<br><span style="font-weight:400;color:#57606a;font-size:10px">0.2s</span></div>
+      <span style="color:#c4c9d1;font-size:11px">▶</span>
+      <div class="wf-node">4. Ratios<br><span style="font-weight:400;color:#57606a;font-size:10px">0.1s</span></div>
+      <span style="color:#c4c9d1;font-size:11px">▶</span>
+      <div class="wf-node">5. Peers<br><span style="font-weight:400;color:#57606a;font-size:10px">8.4s</span></div>
+      <span style="color:#c4c9d1;font-size:11px">▶</span>
+      <div class="wf-node">6. Sentiment<br><span style="font-weight:400;color:#57606a;font-size:10px">0.3s</span></div>
+      <span style="color:#c4c9d1;font-size:11px">▶</span>
+      <div class="wf-node">7. Risk<br><span style="font-weight:400;color:#57606a;font-size:10px">0.1s</span></div>
+      <span style="color:#c4c9d1;font-size:11px">▶</span>
+      <div class="wf-node">8. Granite<br><span style="font-weight:400;color:#57606a;font-size:10px">4.1s</span></div>
+      <span style="color:#c4c9d1;font-size:11px">▶</span>
+      <div class="wf-node">9. Growth<br><span style="font-weight:400;color:#57606a;font-size:10px">2.8s</span></div>
+      <span style="color:#c4c9d1;font-size:11px">▶</span>
+      <div class="wf-node">10. Rec<br><span style="font-weight:400;color:#57606a;font-size:10px">0.1s</span></div>
+    </div>
+    <div style="margin-top:10px;border-top:1px solid #f3f4f6;padding-top:8px;display:flex;justify-content:space-between;font-size:12px;color:#57606a">
+      <span>✅ 10/10 steps completed · 0 errors</span>
+      <span>Total runtime: <strong style="color:#1f2328">19.4 seconds</strong></span>
+    </div>
+  </div>
+
+  <!-- FINAL RECOMMENDATION -->
+  <div class="rec-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#57606a;margin-bottom:4px">Final Investment Recommendation</div>
+        <div style="font-size:28px;font-weight:800;color:#3b82d4">BUY <span style="font-size:16px;color:#57606a;font-weight:400">— Score: 71.4/100</span></div>
+        <div style="font-size:12px;color:#57606a;margin-top:4px">IBM Granite + Quantitative Synthesis · ibm/granite-13b-instruct-v2</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;font-weight:600;color:#1f2328">12-Month Price Target</div>
+        <div style="font-size:26px;font-weight:700;color:#16a34a">$215.00</div>
+        <div style="font-size:12px;color:#57606a">+11.1% upside from $193.60</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;border-top:1px solid #bfdbfe;padding-top:12px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#57606a;margin-bottom:6px">Rationale</div>
+      <ul style="font-size:13px;color:#1f2328;line-height:1.9;padding-left:16px">
+        <li>Strong quality score (83/100) — 45% gross margin, $90B FCF, exceptional capital returns.</li>
+        <li>Revenue growing 8.1% YoY with durable Services segment now exceeding $85B annually.</li>
+        <li>Low risk profile (25/100) — zero high-severity risk factors detected.</li>
+        <li>Analyst consensus BUY with mean target $215 — 11.1% upside from current price.</li>
+        <li>Slightly bullish news sentiment (56.4/100) with 55% of articles carrying positive signal.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer" style="max-width:900px;margin:0 auto;padding:0 16px 24px">
+  <div style="border-top:1px solid #e5e7eb;padding-top:12px">
+    Made with IBM Bob &nbsp;·&nbsp; Sequential Task Investment Analyst Agent · IBM watsonx · Granite · Langflow · Orchestrate
+  </div>
+  <div style="margin-top:3px;color:#c4c9d1;font-size:10px">For informational purposes only. Not financial advice. All data is illustrative sample output.</div>
+</div>
+</body>
+</html>

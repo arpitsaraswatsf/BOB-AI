@@ -1,0 +1,345 @@
+# IBM Orchestrate Automation Manifest
+# Sequential Task Investment Analyst Agent
+# Defines skills, tools, and the orchestration workflow
+
+apiVersion: orchestrate/v1
+kind: AutomationApp
+metadata:
+  name: investment-analyst-agent
+  display_name: "Sequential Task Investment Analyst"
+  description: |
+    AI-powered investment analysis agent that automates the complete 
+    workflow from data collection to buy/sell recommendation using 
+    IBM Granite models.
+  version: "1.0.0"
+  author: "IBM watsonx Team"
+  tags: ["finance", "investment", "ai", "granite", "watsonx"]
+
+# ──────────────────────────────────────────────────────────────
+# SKILLS (individual callable tools)
+# ──────────────────────────────────────────────────────────────
+skills:
+  - name: collect_financial_data
+    display_name: "Collect Financial Data"
+    description: "Fetches raw financial data from Yahoo Finance, Alpha Vantage, SEC EDGAR, Finnhub and NewsAPI for a given ticker."
+    endpoint: "POST /collect"
+    input_schema:
+      type: object
+      required: [ticker]
+      properties:
+        ticker:
+          type: string
+          description: "Stock ticker symbol (e.g. AAPL)"
+    output_schema:
+      type: object
+      description: "Raw financial data from all sources"
+
+  - name: validate_data
+    display_name: "Validate & Clean Data"
+    description: "Validates data quality, removes invalid values, computes a completeness score."
+    endpoint: "POST /validate"
+    input_schema:
+      type: object
+      required: [raw_data]
+      properties:
+        raw_data:
+          type: object
+    output_schema:
+      type: object
+      properties:
+        completeness_score:
+          type: number
+        is_usable:
+          type: boolean
+
+  - name: extract_kpis
+    display_name: "Extract Financial KPIs"
+    description: "Extracts 50+ standardized KPIs: Revenue, EPS, ROE, ROA, P/E, Cash Flow, Margins, Debt, etc."
+    endpoint: "POST /kpis/extract"
+    input_schema:
+      type: object
+      required: [validated_data]
+      properties:
+        validated_data:
+          type: object
+    output_schema:
+      type: object
+      description: "Standardized KPI dictionary"
+
+  - name: calculate_ratios
+    display_name: "Calculate Financial Ratios"
+    description: "Computes value, quality, growth, and safety composite scores plus all standard financial ratios."
+    endpoint: "POST /ratios/calculate"
+    input_schema:
+      type: object
+      required: [kpis]
+      properties:
+        kpis:
+          type: object
+    output_schema:
+      type: object
+      properties:
+        overall_financial_score:
+          type: number
+        value_score:
+          type: number
+        quality_score:
+          type: number
+        growth_score:
+          type: number
+        safety_score:
+          type: number
+
+  - name: analyze_competitors
+    display_name: "Competitor Analysis"
+    description: "Fetches peer company data and creates a side-by-side comparison table with rankings."
+    endpoint: "POST /competitors/analyze"
+    input_schema:
+      type: object
+      required: [ticker, kpis]
+      properties:
+        ticker:
+          type: string
+        kpis:
+          type: object
+    output_schema:
+      type: object
+      properties:
+        comparison_table:
+          type: array
+        rankings:
+          type: object
+        sector_averages:
+          type: object
+
+  - name: analyze_sentiment
+    display_name: "News Sentiment Analysis"
+    description: "Runs VADER sentiment analysis on recent news articles to derive bullish/bearish market signal."
+    endpoint: "POST /sentiment/analyze"
+    input_schema:
+      type: object
+      required: [news, ticker]
+      properties:
+        news:
+          type: array
+        ticker:
+          type: string
+    output_schema:
+      type: object
+      properties:
+        sentiment_score:
+          type: number
+          description: "0-100 score (50 = neutral, >60 = bullish, <40 = bearish)"
+        overall_label:
+          type: string
+
+  - name: detect_risks
+    display_name: "Risk Detection"
+    description: "Identifies financial and market risks across 12 risk dimensions with severity ratings."
+    endpoint: "POST /risk/detect"
+    input_schema:
+      type: object
+      required: [kpis, ratios, sentiment]
+      properties:
+        kpis:
+          type: object
+        ratios:
+          type: object
+        sentiment:
+          type: object
+    output_schema:
+      type: object
+      properties:
+        risk_score:
+          type: number
+        risk_level:
+          type: string
+          enum: [very_low, low, moderate, high, very_high]
+        risk_factors:
+          type: array
+
+  - name: generate_ai_analysis
+    display_name: "IBM Granite Analysis"
+    description: "Calls IBM Granite LLM to generate deep financial analysis, growth outlook, and written insights."
+    endpoint: "POST /ai/analyze"
+    input_schema:
+      type: object
+      required: [kpis, ratios, sentiment, risk, competitor]
+      properties:
+        kpis:
+          type: object
+        ratios:
+          type: object
+        sentiment:
+          type: object
+        risk:
+          type: object
+        competitor:
+          type: object
+    output_schema:
+      type: object
+      properties:
+        analysis_text:
+          type: string
+        recommendation:
+          type: string
+
+  - name: generate_growth_predictions
+    display_name: "Growth Predictions"
+    description: "IBM Granite generates 3-year low/base/high forecast scenarios for revenue and earnings."
+    endpoint: "POST /ai/predict-growth"
+    input_schema:
+      type: object
+      required: [kpis]
+      properties:
+        kpis:
+          type: object
+    output_schema:
+      type: object
+      properties:
+        growth_predictions_text:
+          type: string
+
+  - name: generate_recommendation
+    display_name: "Final Investment Recommendation"
+    description: "Synthesizes all analysis into a final recommendation: Strong Buy | Buy | Hold | Sell | Strong Sell."
+    endpoint: "POST /recommendation/generate"
+    input_schema:
+      type: object
+      required: [kpis, ratios, sentiment, risk, competitor, ai_analysis]
+      properties:
+        kpis: { type: object }
+        ratios: { type: object }
+        sentiment: { type: object }
+        risk: { type: object }
+        competitor: { type: object }
+        ai_analysis: { type: object }
+    output_schema:
+      type: object
+      properties:
+        final_recommendation:
+          type: string
+          enum: ["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"]
+        composite_score:
+          type: number
+        reasoning:
+          type: array
+          items:
+            type: string
+
+# ──────────────────────────────────────────────────────────────
+# WORKFLOW (sequential task chain)
+# ──────────────────────────────────────────────────────────────
+workflow:
+  name: full_investment_analysis
+  display_name: "Full Investment Analysis Pipeline"
+  description: "Executes all 10 analysis steps sequentially for a given ticker symbol."
+  trigger:
+    type: api
+    input:
+      type: object
+      required: [ticker]
+      properties:
+        ticker:
+          type: string
+          description: "Stock ticker symbol"
+
+  steps:
+    - id: step_1_collect
+      skill: collect_financial_data
+      input:
+        ticker: "{{ trigger.input.ticker }}"
+
+    - id: step_2_validate
+      skill: validate_data
+      depends_on: [step_1_collect]
+      input:
+        raw_data: "{{ steps.step_1_collect.output }}"
+
+    - id: step_3_kpis
+      skill: extract_kpis
+      depends_on: [step_2_validate]
+      input:
+        validated_data: "{{ steps.step_2_validate.output }}"
+
+    - id: step_4_ratios
+      skill: calculate_ratios
+      depends_on: [step_3_kpis]
+      input:
+        kpis: "{{ steps.step_3_kpis.output }}"
+
+    - id: step_5_competitors
+      skill: analyze_competitors
+      depends_on: [step_3_kpis]
+      input:
+        ticker: "{{ trigger.input.ticker }}"
+        kpis: "{{ steps.step_3_kpis.output }}"
+
+    - id: step_6_sentiment
+      skill: analyze_sentiment
+      depends_on: [step_2_validate]
+      input:
+        news: "{{ steps.step_2_validate.output.news }}"
+        ticker: "{{ trigger.input.ticker }}"
+
+    - id: step_7_risk
+      skill: detect_risks
+      depends_on: [step_4_ratios, step_6_sentiment]
+      input:
+        kpis: "{{ steps.step_3_kpis.output }}"
+        ratios: "{{ steps.step_4_ratios.output }}"
+        sentiment: "{{ steps.step_6_sentiment.output }}"
+
+    - id: step_8_analysis
+      skill: generate_ai_analysis
+      depends_on: [step_5_competitors, step_6_sentiment, step_7_risk]
+      input:
+        kpis: "{{ steps.step_3_kpis.output }}"
+        ratios: "{{ steps.step_4_ratios.output }}"
+        sentiment: "{{ steps.step_6_sentiment.output }}"
+        risk: "{{ steps.step_7_risk.output }}"
+        competitor: "{{ steps.step_5_competitors.output }}"
+
+    - id: step_9_growth
+      skill: generate_growth_predictions
+      depends_on: [step_3_kpis]
+      input:
+        kpis: "{{ steps.step_3_kpis.output }}"
+
+    - id: step_10_recommendation
+      skill: generate_recommendation
+      depends_on: [step_8_analysis, step_9_growth]
+      input:
+        kpis: "{{ steps.step_3_kpis.output }}"
+        ratios: "{{ steps.step_4_ratios.output }}"
+        sentiment: "{{ steps.step_6_sentiment.output }}"
+        risk: "{{ steps.step_7_risk.output }}"
+        competitor: "{{ steps.step_5_competitors.output }}"
+        ai_analysis: "{{ steps.step_8_analysis.output }}"
+
+  output:
+    recommendation: "{{ steps.step_10_recommendation.output.final_recommendation }}"
+    composite_score: "{{ steps.step_10_recommendation.output.composite_score }}"
+    reasoning: "{{ steps.step_10_recommendation.output.reasoning }}"
+    full_analysis: "{{ steps.step_8_analysis.output.analysis_text }}"
+    risk_level: "{{ steps.step_7_risk.output.risk_level }}"
+    sentiment_label: "{{ steps.step_6_sentiment.output.overall_label }}"
+
+# ──────────────────────────────────────────────────────────────
+# INTEGRATIONS
+# ──────────────────────────────────────────────────────────────
+integrations:
+  - name: watsonx_ai
+    type: ibm_watsonx
+    config:
+      url: "${WATSONX_URL}"
+      project_id: "${WATSONX_PROJECT_ID}"
+      model_id: "${GRANITE_MODEL_ID}"
+
+  - name: investment_api
+    type: rest
+    config:
+      base_url: "${API_BASE_URL}"
+      auth_type: api_key
+      api_key_header: "X-API-Key"
+      api_key: "${API_KEY}"
